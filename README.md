@@ -1,1 +1,1 @@
-# CMC-Platform
+# Cleaning Platform — Django Starter (Heroku)
