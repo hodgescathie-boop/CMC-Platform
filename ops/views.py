@@ -1,6 +1,6 @@
 from decimal import Decimal
 from django.shortcuts import render
-from django.http import HttpResponse
+from django.db import models
 from .forms import EstimateForm
 from .models import PricingSettings, AddOn, Estimate
 
@@ -45,17 +45,8 @@ def _calc_price(service_type: str, frequency: str, hours: Decimal, addon_ids):
     return total.quantize(Decimal("0.01"))
 
 def home(request):
-    # Keep a simple homepage
-    return HttpResponse("""
-    <html>
-      <head><title>Cleaning Platform</title></head>
-      <body style='font-family:system-ui,Arial,sans-serif;margin:2rem'>
-        <h1>Cleaning Platform</h1>
-        <p><a href='/estimate/'>Get a free estimate</a></p>
-        <p>Admin: <a href='/admin/'>/admin</a></p>
-      </body>
-    </html>
-    """)
+    # Render the homepage from index.html
+    return render(request, "index.html")
 
 def estimate(request):
     result = None
