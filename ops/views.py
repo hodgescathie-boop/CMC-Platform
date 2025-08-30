@@ -1,26 +1,24 @@
 from decimal import Decimal
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.db import models
+from django.urls import reverse
 from .forms import EstimateForm
 from .models import PricingSettings, AddOn, Estimate
 
 def _get_settings():
-    # Fetch the single settings row, or defaults if not created yet
     ps = PricingSettings.objects.first()
     if not ps:
-        ps = PricingSettings()  # default values from model
+        ps = PricingSettings()
     return ps
 
 def _calc_price(service_type: str, frequency: str, hours: Decimal, addon_ids):
     ps = _get_settings()
 
-    # Base hourly rate selection
     if service_type == "residential":
         if frequency == "one_time":
             hourly = Decimal(ps.one_time_res)
         else:
             hourly = Decimal(ps.res_base)
-            # Frequency discounts only for residential recurring
             disc = Decimal("0")
             if frequency == "weekly":
                 disc = Decimal(ps.weekly_discount or 0) / Decimal("100")
@@ -29,14 +27,11 @@ def _calc_price(service_type: str, frequency: str, hours: Decimal, addon_ids):
             elif frequency == "monthly":
                 disc = Decimal(ps.monthly_discount or 0) / Decimal("100")
             hourly = hourly * (Decimal("1") - disc)
-            # Never below residential floor
             if hourly < Decimal(ps.res_base):
                 hourly = Decimal(ps.res_base)
     else:
-        # commercial, construction, church – no discounts
         hourly = Decimal(ps.comm_base)
 
-    # Add-ons (flat)
     addons_total = AddOn.objects.filter(id__in=addon_ids).aggregate(
         total_sum=models.Sum("price_flat")
     )["total_sum"] or Decimal("0")
@@ -45,13 +40,9 @@ def _calc_price(service_type: str, frequency: str, hours: Decimal, addon_ids):
     return total.quantize(Decimal("0.01"))
 
 def home(request):
-    # Render the homepage from index.html
     return render(request, "index.html")
 
 def estimate(request):
-    result = None
-    note = None
-
     if request.method == "POST":
         form = EstimateForm(request.POST)
         if form.is_valid():
@@ -66,18 +57,26 @@ def estimate(request):
             est.save()
             form.save_m2m()
 
-            if not form.cleaned_data.get("within_radius"):
-                note = "You appear to be outside our service area. Our office will contact you. (You can also call 256-736-9944.)"
+            # stash price in session just to show on the thanks page (simple & stateless)
+            request.session["last_estimate_price"] = str(total)
 
-            result = {
-                "price": total,
-                "name": est.name,
-                "service_type": est.service_type,
-                "frequency": est.frequency,
-                "hours": est.hours,
-                "addons": list(est.addons.values_list("name", flat=True)),
-            }
+            # note about service radius — in v2 we can email/notify office as needed
+            if not form.cleaned_data.get("within_radius"):
+                request.session["estimate_note"] = (
+                    "You appear to be outside our service area. Our office will contact you. "
+                    "(You can also call 256-736-9944.)"
+                )
+            else:
+                request.session.pop("estimate_note", None)
+
+            return redirect(reverse("estimate_thanks"))
     else:
         form = EstimateForm()
 
-    return render(request, "estimate.html", {"form": form, "result": result, "note": note})
+    return render(request, "estimate.html", {"form": form})
+
+def estimate_thanks(request):
+    price = request.session.pop("last_estimate_price", None)
+    note = request.session.pop("estimate_note", None)
+    ctx = {"price": price, "note": note}
+    return render(request, "estimate_thanks.html", ctx)
