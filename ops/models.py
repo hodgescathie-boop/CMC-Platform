@@ -1,220 +1,114 @@
-# ops/models.py
-from __future__ import annotations
-
-from decimal import Decimal, ROUND_HALF_UP
-from django.core.validators import MinValueValidator, RegexValidator
 from django.db import models
+from decimal import Decimal
 
+class PricingSettings(models.Model):
+    # Floors & rates (USD per hour)
+    res_base = models.DecimalField(max_digits=6, decimal_places=2, default=125)      # Residential floor
+    one_time_res = models.DecimalField(max_digits=6, decimal_places=2, default=200)  # One-time residential
+    comm_base = models.DecimalField(max_digits=6, decimal_places=2, default=185)     # Commercial/Construction/Church floor
 
-# ---------- Utilities ----------
+    # Frequency discounts (residential only), in percent
+    weekly_discount = models.DecimalField(max_digits=5, decimal_places=2, default=15)
+    biweekly_discount = models.DecimalField(max_digits=5, decimal_places=2, default=10)
+    monthly_discount = models.DecimalField(max_digits=5, decimal_places=2, default=5)
 
-USD = Decimal("0.01")
+    # Service area
+    service_radius_miles = models.PositiveIntegerField(default=30)
+    service_zip_center = models.CharField(max_length=10, default="35055")
 
+    # --- Hour estimate knobs (admin can tune for any business) ---
+    base_hours_res = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("2.00"))
+    hours_per_bedroom = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("0.50"))
+    hours_per_bathroom = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("0.50"))
+    hours_per_500_sqft = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("0.25"))
+    hours_per_level = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("0.25"))
+    pets_extra_hours = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("0.25"))
+    furnished_extra_hours = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("0.25"))
 
-class TimeStampedModel(models.Model):
-    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    # Cleanliness multipliers
+    cleanliness_multiplier_basic = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("1.00"))
+    cleanliness_multiplier_deep = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("1.50"))
 
-    class Meta:
-        abstract = True
+    # Property type multipliers
+    property_multiplier_residential = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("1.00"))
+    property_multiplier_commercial  = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("1.20"))
+    property_multiplier_construction= models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("1.60"))
+    property_multiplier_move        = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("1.40"))
+    property_multiplier_church      = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("1.30"))
 
-
-# ---------- Domain Models ----------
-
-class AddOn(TimeStampedModel):
-    class PriceType(models.TextChoices):
-        FLAT = "flat", "Flat amount"
-        HOURLY = "hourly", "Per hour"
-
-    name = models.CharField(max_length=120, unique=True)
-    description = models.TextField(blank=True)
-    price_type = models.CharField(
-        max_length=10,
-        choices=PriceType.choices,
-        default=PriceType.FLAT,
-    )
-    amount = models.DecimalField(
-        max_digits=8,
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal("0.00"))],
-        help_text="If 'Per hour', this amount is multiplied by hours.",
-    )
-    active = models.BooleanField(default=True)
-
-    def __str__(self) -> str:
-        unit = "/hr" if self.price_type == self.PriceType.HOURLY else ""
-        return f"{self.name} (${self.amount}{unit})"
-
-    class Meta:
-        ordering = ["name"]
-        verbose_name = "Add-on"
-        verbose_name_plural = "Add ons"
-
-
-class PricingSettings(TimeStampedModel):
-    """
-    Global pricing configuration. Typically one row that the app reads.
-    """
-    hourly_rate = models.DecimalField(
-        max_digits=8,
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal("0.00"))],
-        help_text="Base hourly rate for labor.",
-    )
-    min_hours = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        default=Decimal("2.0"),
-        validators=[MinValueValidator(Decimal("0.00"))],
-        help_text="Minimum billable hours for any estimate.",
-    )
-    outside_radius_fee = models.DecimalField(
-        max_digits=8,
-        decimal_places=2,
-        default=Decimal("0.00"),
-        validators=[MinValueValidator(Decimal("0.00"))],
-        help_text="Applied when the job is outside the default service radius.",
-    )
-    service_radius_miles = models.PositiveIntegerField(
-        default=30,
-        help_text="Default service radius in miles.",
-    )
-    base_zip = models.CharField(
-        max_length=10,
-        default="35055",
-        validators=[RegexValidator(r"^\d{5}(-\d{4})?$", "Enter a valid ZIP code.")],
-        help_text="Home base ZIP code for radius checks.",
-    )
-
-    def __str__(self) -> str:
-        return "Pricing settings"
+    def __str__(self):
+        return "Pricing Settings"
 
     class Meta:
         verbose_name = "Pricing settings"
         verbose_name_plural = "Pricing settings"
-        ordering = ["-created_at"]
 
 
-class Estimate(TimeStampedModel):
-    class ServiceType(models.TextChoices):
-        STANDARD = "standard", "Standard clean"
-        DEEP = "deep", "Deep clean"
-        MOVE = "move_in_out", "Move in / Move out"
-        OFFICE = "office", "Office / Commercial"
+class AddOn(models.Model):
+    key = models.SlugField(max_length=50, unique=True)
+    name = models.CharField(max_length=100)
+    price_flat = models.DecimalField(max_digits=6, decimal_places=2, default=50)  # $50 each by default
 
-    class Frequency(models.TextChoices):
-        ONE_TIME = "one_time", "One-time"
-        WEEKLY = "weekly", "Weekly"
-        BIWEEKLY = "biweekly", "Every 2 weeks"
-        MONTHLY = "monthly", "Monthly"
-
-    # Customer & location
-    name = models.CharField(max_length=120)
-    email = models.EmailField()
-    phone = models.CharField(max_length=30, blank=True)
-    address = models.CharField(max_length=255)
-    zip_code = models.CharField(
-        max_length=10,
-        validators=[RegexValidator(r"^\d{5}(-\d{4})?$", "Enter a valid ZIP code.")],
-    )
-
-    # Job details
-    service_type = models.CharField(
-        max_length=20,
-        choices=ServiceType.choices,
-        default=ServiceType.STANDARD,
-    )
-    frequency = models.CharField(
-        max_length=20,
-        choices=Frequency.choices,
-        default=Frequency.ONE_TIME,
-    )
-    hours = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal("0.00"))],
-        help_text="Estimated labor hours (before minimums).",
-    )
-    addons = models.ManyToManyField(AddOn, blank=True)
-    within_radius = models.BooleanField(
-        default=True,
-        help_text="If unchecked, an outside-radius fee may apply.",
-    )
-    notes = models.TextField(blank=True)
-
-    # Quoting lifecycle
-    class Status(models.TextChoices):
-        NEW = "new", "New"
-        QUOTED = "quoted", "Quoted"
-        SCHEDULED = "scheduled", "Scheduled"
-        COMPLETED = "completed", "Completed"
-        CANCELED = "canceled", "Canceled"
-
-    status = models.CharField(
-        max_length=20,
-        choices=Status.choices,
-        default=Status.NEW,
-        db_index=True,
-    )
-    quoted_total = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text="Stored snapshot of the price at time of quote.",
-    )
-
-    def __str__(self) -> str:
-        return f"Estimate #{self.pk or '—'} — {self.name}"
-
-    # -------- Pricing helpers (for upcoming auto-calculation) --------
-
-    def _get_pricing(self, pricing: PricingSettings | None = None) -> PricingSettings:
-        pricing = pricing or PricingSettings.objects.order_by("-created_at").first()
-        if not pricing:
-            # Safe default if settings not yet created
-            return PricingSettings(
-                hourly_rate=Decimal("0.00"),
-                min_hours=Decimal("0.00"),
-                outside_radius_fee=Decimal("0.00"),
-                service_radius_miles=30,
-                base_zip="35055",
-            )
-        return pricing
-
-    def calculate_quote(self, pricing: PricingSettings | None = None) -> Decimal:
-        """
-        Calculate a quote using current PricingSettings and selected AddOns.
-        This does not persist the value; call save_quote() to store it.
-        """
-        pricing = self._get_pricing(pricing)
-
-        billable_hours = max(Decimal(self.hours or 0), pricing.min_hours)
-        total = billable_hours * pricing.hourly_rate
-
-        for addon in self.addons.all():
-            if addon.price_type == AddOn.PriceType.HOURLY:
-                total += billable_hours * addon.amount
-            else:
-                total += addon.amount
-
-        if not self.within_radius:
-            total += pricing.outside_radius_fee
-
-        # Round to cents using bankers' rounding behavior aligned with typical invoices
-        return total.quantize(USD, rounding=ROUND_HALF_UP)
-
-    def save_quote(self, pricing: PricingSettings | None = None, commit: bool = True) -> Decimal:
-        """
-        Compute and store the quoted_total. Returns the computed value.
-        """
-        quote = self.calculate_quote(pricing=pricing)
-        self.quoted_total = quote
-        if commit:
-            self.save(update_fields=["quoted_total", "updated_at"])
-        return quote
+    def __str__(self):
+        return self.name
 
     class Meta:
-        ordering = ["-created_at"]
+        verbose_name = "Add on"
+        verbose_name_plural = "Add ons"
+
+
+class Estimate(models.Model):
+    SERVICE_CHOICES = [
+        ("residential", "Residential"),
+        ("commercial", "Commercial"),
+        ("construction", "Construction cleanup"),
+        ("move", "Move in / Move out"),
+        ("church", "Church"),
+    ]
+    CLEAN_CHOICES = [
+        ("basic", "Basic (bathrooms, light dust, floors, wipe surfaces)"),
+        ("deep", "Deep (floor to ceiling; add-ons separate)"),
+    ]
+    FREQ_CHOICES = [
+        ("one_time", "One-time"),
+        ("weekly", "Weekly"),
+        ("biweekly", "Bi-weekly"),
+        ("monthly", "Monthly"),
+    ]
+
+    # Customer info
+    name = models.CharField(max_length=120)
+    email = models.EmailField(blank=True)
+    phone = models.CharField(max_length=40, blank=True)
+    address = models.CharField(max_length=255, blank=True)
+    zip_code = models.CharField(max_length=10, blank=True)
+
+    # Service selection
+    within_radius = models.BooleanField(default=True, help_text="Customer is within 30 miles of 35055")
+    service_type = models.CharField(max_length=20, choices=SERVICE_CHOICES)
+    cleanliness_level = models.CharField(max_length=20, choices=CLEAN_CHOICES, default="basic")
+    frequency = models.CharField(max_length=20, choices=FREQ_CHOICES)
+
+    # Home/space details
+    furnished = models.BooleanField(default=True)
+    pets = models.BooleanField(default=False)
+    approx_sq_ft = models.PositiveIntegerField(default=1500)
+    bedrooms = models.PositiveIntegerField(default=2)
+    bathrooms = models.PositiveIntegerField(default=2)
+    levels = models.PositiveIntegerField(default=1)
+
+    # Auto-computed hours (stored for record)
+    hours = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Auto-computed from details")
+
+    # Add-ons & result
+    addons = models.ManyToManyField(AddOn, blank=True)
+    estimated_price = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.name} – {self.service_type} ({self.frequency})"
+
+    class Meta:
         verbose_name = "Estimate"
         verbose_name_plural = "Estimates"
