@@ -2,33 +2,16 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Get an Estimate</title>
+  <title>Cleaning Platform</title>
 </head>
-<body style="font-family:system-ui,Arial,sans-serif; margin:2rem; max-width:720px">
-  <h1>Get a Free Estimate</h1>
-  <form method="post" style="display:grid; gap:0.75rem;">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Calculate</button>
-  </form>
+<body style="font-family:system-ui,Arial,sans-serif; margin:2rem">
+  <h1>Cleaning Platform</h1>
 
-  {% if result %}
-    <hr>
-    <h2>Estimated Price</h2>
-    <p><strong>${{ result.price }}</strong></p>
-    <p>
-      Service: {{ result.service_type }} ({{ result.frequency }})<br>
-      Hours: {{ result.hours }}<br>
-      Add-ons: {% if result.addons %}{{ result.addons|join:", " }}{% else %}None{% endif %}
-    </p>
-  {% endif %}
+  <p>Welcome to Cleaning and More Cullman’s scheduling and estimate system.</p>
 
-  {% if note %}
-    <p style="background:#fff3cd; border:1px solid #ffe58f; padding:0.75rem; border-radius:8px;">
-      {{ note }}
-    </p>
-  {% endif %}
-
-  <p><a href="/">Back to home</a></p>
+  <ul>
+    <li><a href="/estimate/">Get a Free Estimate</a></li>
+    <li><a href="/admin/">Admin Login</a></li>
+  </ul>
 </body>
 </html>
