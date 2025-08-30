@@ -69,5 +69,4 @@ class Estimate(models.Model):
         return f"{self.name} – {self.service_type} ({self.frequency})"
 
     class Meta:
-        verbose_name = "Pricing settings"
         verbose_name_plural = "Pricing settings"
