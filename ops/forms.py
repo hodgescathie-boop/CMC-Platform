@@ -12,7 +12,10 @@ class EstimateForm(forms.ModelForm):
         model = Estimate
         fields = [
             "name", "email", "phone", "address", "zip_code",
-            "service_type", "frequency", "hours", "addons", "within_radius"
+            "service_type", "cleanliness_level", "frequency",
+            "furnished", "pets",
+            "approx_sq_ft", "bedrooms", "bathrooms", "levels",
+            "addons", "within_radius",
         ]
         widgets = {
             "addons": forms.CheckboxSelectMultiple,
