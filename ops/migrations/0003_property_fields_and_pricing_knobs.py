@@ -12,7 +12,14 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="estimate",
             name="cleanliness_level",
-            field=models.CharField(choices=[("basic", "Basic (bathrooms, light dust, floors, wipe surfaces)"), ("deep", "Deep (floor to ceiling; add-ons separate)")], default="basic", max_length=20),
+            field=models.CharField(
+                choices=[
+                    ("basic", "Basic (bathrooms, light dust, floors, wipe surfaces)"),
+                    ("deep", "Deep (floor to ceiling; add-ons separate)")
+                ],
+                default="basic",
+                max_length=20,
+            ),
         ),
         migrations.AddField(
             model_name="estimate",
@@ -37,7 +44,16 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name="estimate",
             name="service_type",
-            field=models.CharField(choices=[("residential", "Residential"), ("commercial", "Commercial"), ("construction", "Construction cleanup"), ("move", "Move in / Move out"), ("church", "Church")], max_length=20),
+            field=models.CharField(
+                choices=[
+                    ("residential", "Residential"),
+                    ("commercial", "Commercial"),
+                    ("construction", "Construction cleanup"),
+                    ("move", "Move in / Move out"),
+                    ("church", "Church")
+                ],
+                max_length=20,
+            ),
         ),
 
         # PricingSettings knobs
