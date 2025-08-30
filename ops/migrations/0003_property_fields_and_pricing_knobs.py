@@ -15,7 +15,7 @@ class Migration(migrations.Migration):
             field=models.CharField(
                 choices=[
                     ("basic", "Basic (bathrooms, light dust, floors, wipe surfaces)"),
-                    ("deep", "Deep (floor to ceiling; add-ons separate)")
+                    ("deep", "Deep (floor to ceiling; add-ons separate)"),
                 ],
                 default="basic",
                 max_length=20,
@@ -50,7 +50,7 @@ class Migration(migrations.Migration):
                     ("commercial", "Commercial"),
                     ("construction", "Construction cleanup"),
                     ("move", "Move in / Move out"),
-                    ("church", "Church")
+                    ("church", "Church"),
                 ],
                 max_length=20,
             ),
