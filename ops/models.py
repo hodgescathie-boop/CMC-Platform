@@ -18,6 +18,10 @@ class PricingSettings(models.Model):
     def __str__(self):
         return "Pricing Settings"
 
+    class Meta:
+        verbose_name = "Pricing settings"
+        verbose_name_plural = "Pricing settings"
+
 
 class AddOn(models.Model):
     key = models.SlugField(max_length=50, unique=True)
@@ -26,6 +30,10 @@ class AddOn(models.Model):
 
     def __str__(self):
         return self.name
+
+    class Meta:
+        verbose_name = "Add on"
+        verbose_name_plural = "Add ons"
 
 
 class Estimate(models.Model):
@@ -69,4 +77,5 @@ class Estimate(models.Model):
         return f"{self.name} – {self.service_type} ({self.frequency})"
 
     class Meta:
-        verbose_name_plural = "Pricing settings"
+        verbose_name = "Estimate"
+        verbose_name_plural = "Estimates"
